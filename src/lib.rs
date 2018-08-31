@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::{cmp::Ordering, slice};
+use core::{cmp::*, ops::*, slice};
 
 mod private {
     pub trait OptionExtSealed {}
@@ -69,5 +69,18 @@ impl<A> SliceExt for [A] {
     unsafe fn split_at_unchecked_mut(&mut self, k: usize) -> (&mut Self, &mut Self) {
         (slice::from_raw_parts_mut(self.as_mut_ptr(), k),
          slice::from_raw_parts_mut(self.as_mut_ptr().add(k), self.len() - k))
+    }
+}
+
+#[inline]
+pub fn checked_sub<A: PartialOrd<B> + Sub<B>, B>(a: A, b: B) -> Option<<A as Sub<B>>::Output> {
+    if a >= b { Some(a - b) } else { None }
+}
+
+#[inline]
+pub fn zip_opt<A, B>(x: Option<A>, y: Option<B>) -> Option<(A, B)> {
+    match (x, y) {
+        (Some(x), Some(y)) => Some((x, y)),
+        _ => None,
     }
 }
