@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::{cmp::*, ops::*, slice};
+use core::{cmp::*, mem, ops::*, slice};
 
 mod private {
     pub trait OptionExtSealed {}
@@ -38,6 +38,10 @@ pub trait SliceExt: SliceExtSealed {
     fn try_split_at_mut(&mut self, k: usize) -> Option<(&mut Self, &mut Self)>;
     unsafe fn split_at_unchecked(&self, k: usize) -> (&Self, &Self);
     unsafe fn split_at_unchecked_mut(&mut self, k: usize) -> (&mut Self, &mut Self);
+    unsafe fn copy_from_ptr(&mut self, _: *const Self::Inner);
+
+    fn copy_x(&mut self, s: usize, t: usize, n: usize) where Self::Inner: Copy;
+    fn copy_from_x(&mut self, other: &Self) where Self::Inner: Copy;
 }
 
 impl<A> SliceExtSealed for [A] {}
@@ -70,6 +74,20 @@ impl<A> SliceExt for [A] {
         (slice::from_raw_parts_mut(self.as_mut_ptr(), k),
          slice::from_raw_parts_mut(self.as_mut_ptr().add(k), self.len() - k))
     }
+
+    #[inline(always)]
+    unsafe fn copy_from_ptr(&mut self, ptr: *const Self::Inner) {
+        ptr.copy_to_nonoverlapping(self.as_mut_ptr(), self.len())
+    }
+
+    #[inline]
+    fn copy_x(&mut self, s: usize, t: usize, n: usize) where Self::Inner: Copy { self.copy_within(s..s + n, t) }
+
+    #[inline]
+    fn copy_from_x(&mut self, other: &Self) where Self::Inner: Copy { unsafe {
+        let l = core::cmp::min(self.len(), other.len());
+        core::ptr::copy_nonoverlapping(other.as_ptr(), self.as_mut_ptr(), l)
+    } }
 }
 
 #[inline]
@@ -84,3 +102,6 @@ pub fn zip_opt<A, B>(x: Option<A>, y: Option<B>) -> Option<(A, B)> {
         _ => None,
     }
 }
+
+#[inline(always)]
+pub fn ptr_diff<A>(q: *mut A, p: *mut A) -> usize { (q as usize - p as usize)/mem::size_of::<A>() }
